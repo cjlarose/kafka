@@ -171,20 +171,31 @@ describe('SimpleConsumer', function () {
     });
 
     it('should receive messages in maxBytes batches', function () {
+        var maxBytes = 2 * (8 + 4) + maxBytesTestMessagesSize;
+        var smallRequestSpy = sinon.spy(function () {});
+        var largeRequestSpy = sinon.spy(function () {});
+
         return consumer.unsubscribe('kafka-test-topic', 0).then(function () {
-            dataHandlerSpy.reset();
             return consumer.offset('kafka-test-topic', 0).then(function (offset) {
                 // ask for maxBytes that is only 1 byte less then required for both last messages
-                var maxBytes = 2 * (8 + 4) + maxBytesTestMessagesSize - 1;
-                return consumer.subscribe('kafka-test-topic', 0, { offset: offset - 2, maxBytes: maxBytes }, dataHandlerSpy)
+                return consumer.subscribe('kafka-test-topic', 0, { offset: offset - 2, maxBytes: maxBytes - 1 }, smallRequestSpy)
                 .delay(300)
                 .then(function () {
+                    // ask for maxBytes that is exactly the number of bytes required for both last messages
+                    return consumer.subscribe('kafka-test-topic', 0, { offset: offset - 2, maxBytes: maxBytes }, largeRequestSpy);
+                })
+                .delay(300)
+                .then(function () {
+                    smallRequestSpy.should.have.been.calledTwice; // eslint-disable-line
+                    smallRequestSpy.getCall(0).args[0].should.be.an('array').and.have.length(1);
+                    smallRequestSpy.getCall(1).args[0].should.be.an('array').and.have.length(1);
+                    smallRequestSpy.getCall(0).args[0][0].message.value.toString('utf8').should.be.eql('p000');
+                    smallRequestSpy.getCall(1).args[0][0].message.value.toString('utf8').should.be.eql('p001');
                     /* jshint expr: true */
-                    dataHandlerSpy.should.have.been.calledTwice; // eslint-disable-line
-                    dataHandlerSpy.getCall(0).args[0].should.be.an('array').and.have.length(1);
-                    dataHandlerSpy.getCall(1).args[0].should.be.an('array').and.have.length(1);
-                    dataHandlerSpy.getCall(0).args[0][0].message.value.toString('utf8').should.be.eql('p000');
-                    dataHandlerSpy.getCall(1).args[0][0].message.value.toString('utf8').should.be.eql('p001');
+                    largeRequestSpy.should.have.been.calledOnce; // eslint-disable-line
+                    largeRequestSpy.getCall(0).args[0].should.be.an('array').and.have.length(2);
+                    largeRequestSpy.getCall(0).args[0][0].message.value.toString('utf8').should.be.eql('p000');
+                    largeRequestSpy.getCall(0).args[0][1].message.value.toString('utf8').should.be.eql('p001');
                 });
             });
         });
