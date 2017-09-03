@@ -171,7 +171,7 @@ describe('SimpleConsumer', function () {
     });
 
     it('should receive messages in maxBytes batches', function () {
-        var maxBytes = 2 * (8 + 4) + maxBytesTestMessagesSize;
+        var maxBytes = 2 * (8 + 4) + maxBytesTestMessagesSize + 16;
         var smallRequestSpy = sinon.spy(function () {});
         var largeRequestSpy = sinon.spy(function () {});
 
